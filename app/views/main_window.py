@@ -1,8 +1,5 @@
-from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout, QStackedWidget, QStatusBar,
-)
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QStackedWidget, QStatusBar
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon
 
 from app.views.sidebar import Sidebar
 from app.views.dashboard_view import DashboardView
@@ -11,22 +8,21 @@ from app.views.lancamentos_view import LancamentosView
 from app.views.livro_diario_view import LivroDiarioView
 from app.views.livro_razao_view import LivroRazaoView
 from app.views.razonete_view import RazoneteView
-from app.views.dre_view import DREView
+from app.views.dre_view import DreView
 from app.views.balanco_view import BalancoView
 from app.views.estoque_view import EstoqueView
 from app.views.relatorios_view import RelatoriosView
+from app.views.configuracoes_view import ConfiguracoesView
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("SisGest — Gestão Financeira e Contábil")
-        self.setMinimumSize(1280, 720)
+        self.setMinimumSize(1100, 680)
         self.resize(1440, 860)
         self._setup_ui()
         self._setup_statusbar()
-
-    # ── build ─────────────────────────────────────────
 
     def _setup_ui(self) -> None:
         root = QWidget()
@@ -48,16 +44,17 @@ class MainWindow(QMainWindow):
 
     def _register_views(self) -> None:
         self._views: dict[str, QWidget] = {
-            "dashboard":    DashboardView(),
-            "plano_contas": PlanoContasView(),
-            "lancamentos":  LancamentosView(),
-            "livro_diario": LivroDiarioView(),
-            "livro_razao":  LivroRazaoView(),
-            "razonete":     RazoneteView(),
-            "dre":          DREView(),
-            "balanco":      BalancoView(),
-            "estoque":      EstoqueView(),
-            "relatorios":   RelatoriosView(),
+            "dashboard":     DashboardView(),
+            "plano_contas":  PlanoContasView(),
+            "lancamentos":   LancamentosView(),
+            "livro_diario":  LivroDiarioView(),
+            "livro_razao":   LivroRazaoView(),
+            "razonete":      RazoneteView(),
+            "dre":           DreView(),
+            "balanco":       BalancoView(),
+            "estoque":       EstoqueView(),
+            "relatorios":    RelatoriosView(),
+            "configuracoes": ConfiguracoesView(),
         }
         for view in self._views.values():
             self.stack.addWidget(view)
@@ -66,8 +63,6 @@ class MainWindow(QMainWindow):
         bar = QStatusBar()
         bar.showMessage("Pronto  •  Banco de dados conectado")
         self.setStatusBar(bar)
-
-    # ── slots ─────────────────────────────────────────
 
     def _on_navigate(self, key: str) -> None:
         view = self._views.get(key)

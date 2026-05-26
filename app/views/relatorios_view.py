@@ -1,38 +1,46 @@
+from __future__ import annotations
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QGridLayout, QFrame,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QGridLayout, QScrollArea, QFrame,
 )
 from PySide6.QtCore import Qt
 
+from app.views.components.page_header import PageHeader
+
 
 class _ReportCard(QWidget):
-    def __init__(self, icon: str, title: str, description: str) -> None:
+    def __init__(self, icon: str, title: str, description: str, accent: str = "#a78bfa") -> None:
         super().__init__()
-        self.setObjectName("card")
-        self.setCursor(Qt.PointingHandCursor)
+        self.setObjectName("reportCard")
 
         ly = QVBoxLayout(self)
-        ly.setSpacing(8)
+        ly.setContentsMargins(20, 18, 20, 18)
+        ly.setSpacing(10)
 
+        # ícone
         icon_lbl = QLabel(icon)
-        icon_lbl.setObjectName("emptyStateIcon")
-        icon_lbl.setStyleSheet("font-size: 32px;")
+        icon_lbl.setFixedSize(44, 44)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setStyleSheet(
+            f"background:{accent}20; border-radius:12px; font-size:22px;"
+        )
+        ly.addWidget(icon_lbl)
 
         title_lbl = QLabel(title)
-        title_lbl.setObjectName("cardTitle")
+        title_lbl.setObjectName("reportCardTitle")
+        ly.addWidget(title_lbl)
 
         desc_lbl = QLabel(description)
         desc_lbl.setObjectName("cardSubtext")
         desc_lbl.setWordWrap(True)
+        ly.addWidget(desc_lbl)
+
+        ly.addStretch()
 
         btn = QPushButton("Gerar PDF")
         btn.setObjectName("btnSecondary")
-        btn.setFixedWidth(110)
-
-        ly.addWidget(icon_lbl)
-        ly.addWidget(title_lbl)
-        ly.addWidget(desc_lbl)
-        ly.addStretch()
+        btn.setFixedWidth(100)
+        btn.setCursor(Qt.PointingHandCursor)
         ly.addWidget(btn)
 
 
@@ -46,25 +54,28 @@ class RelatoriosView(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(self._build_header())
+        header = PageHeader(
+            "Relatórios",
+            "Exportação de demonstrações contábeis e financeiras em PDF",
+        )
+        root.addWidget(header)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         content = QWidget()
         content.setObjectName("pageContent")
         cl = QVBoxLayout(content)
-        cl.setSpacing(24)
+        cl.setContentsMargins(28, 24, 28, 28)
+        cl.setSpacing(16)
+
         cl.addWidget(self._build_grid())
         cl.addStretch()
 
-        root.addWidget(content)
-
-    def _build_header(self) -> QWidget:
-        h = QWidget()
-        h.setObjectName("pageHeader")
-        ly = QVBoxLayout(h)
-        ly.setAlignment(Qt.AlignVCenter)
-        ly.addWidget(QLabel("Relatórios PDF", objectName="pageTitle"))
-        ly.addWidget(QLabel("Exportação de demonstrações contábeis e financeiras", objectName="pageSubtitle"))
-        return h
+        scroll.setWidget(content)
+        root.addWidget(scroll)
 
     def _build_grid(self) -> QWidget:
         container = QWidget()
@@ -72,18 +83,18 @@ class RelatoriosView(QWidget):
         grid.setSpacing(16)
 
         reports = [
-            ("📋", "Plano de Contas",        "Lista estruturada de todas as contas"),
-            ("📖", "Livro Diário",            "Registro cronológico dos lançamentos"),
-            ("📚", "Livro Razão",             "Movimentação por conta contábil"),
-            ("⊕",  "Razonetes",              "Representação em T das contas"),
-            ("📊", "DRE",                     "Demonstração do Resultado do Exercício"),
-            ("⚖",  "Balanço Patrimonial",    "Posição patrimonial em data-base"),
-            ("📦", "Relatório de Estoque",    "Posição atual dos produtos"),
-            ("📄", "Ficha PEPS / UEPS",       "Custeio detalhado por produto"),
+            ("📋", "Plano de Contas",      "Lista estruturada de todas as contas",       "#a78bfa"),
+            ("📓", "Livro Diário",          "Registro cronológico dos lançamentos",        "#60a5fa"),
+            ("📒", "Livro Razão",           "Movimentação por conta contábil",             "#34d399"),
+            ("🔢", "Razonetes",             "Representação em T das contas",               "#f59e0b"),
+            ("📈", "DRE",                   "Demonstração do Resultado do Exercício",      "#a78bfa"),
+            ("⚖",  "Balanço Patrimonial",  "Posição patrimonial em data-base",            "#60a5fa"),
+            ("📦", "Relatório de Estoque",  "Posição atual e valoração dos produtos",      "#34d399"),
+            ("📄", "Ficha PEPS / UEPS",     "Custeio detalhado por produto",               "#f87171"),
         ]
 
-        for idx, (icon, title, desc) in enumerate(reports):
+        for idx, (icon, title, desc, accent) in enumerate(reports):
             row, col = divmod(idx, 4)
-            grid.addWidget(_ReportCard(icon, title, desc), row, col)
+            grid.addWidget(_ReportCard(icon, title, desc, accent), row, col)
 
         return container

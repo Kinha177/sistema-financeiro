@@ -1,11 +1,18 @@
+from __future__ import annotations
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTableWidget, QTableWidgetItem, QDateEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QTableWidget, QTableWidgetItem, QFrame, QLabel,
+    QDateEdit, QHeaderView,
 )
 from PySide6.QtCore import Qt, QDate
 
+from app.views.components.page_header import PageHeader
 
-class DREView(QWidget):
+
+class DreView(QWidget):
+
+    _COLS = ["Código", "Conta / Grupo", "Valor (R$)"]
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
@@ -15,73 +22,128 @@ class DREView(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(self._build_header())
+        header = PageHeader(
+            "DRE",
+            "Demonstração do Resultado do Exercício",
+        )
+        btn_pdf = QPushButton("Exportar PDF")
+        btn_pdf.setObjectName("btnSecondary")
+        btn_pdf.setFixedWidth(120)
+        header.add_action(btn_pdf)
+        root.addWidget(header)
 
         content = QWidget()
         content.setObjectName("pageContent")
         cl = QVBoxLayout(content)
-        cl.setSpacing(16)
-        cl.addWidget(self._build_toolbar())
-        cl.addWidget(self._build_table())
+        cl.setContentsMargins(28, 20, 28, 28)
+        cl.setSpacing(14)
+
+        cl.addWidget(self._build_filter_card())
+        cl.addWidget(self._build_summary_row())
+        cl.addWidget(self._build_table(), 1)
 
         root.addWidget(content)
 
-    def _build_header(self) -> QWidget:
-        h = QWidget()
-        h.setObjectName("pageHeader")
-        ly = QVBoxLayout(h)
-        ly.setAlignment(Qt.AlignVCenter)
-        ly.addWidget(QLabel("DRE — Demonstração do Resultado do Exercício", objectName="pageTitle"))
-        ly.addWidget(QLabel("Apuração do lucro ou prejuízo do período", objectName="pageSubtitle"))
-        return h
+    # ── montagem ──────────────────────────────────────────────────────────────
 
-    def _build_toolbar(self) -> QWidget:
-        bar = QWidget()
-        ly = QHBoxLayout(bar)
+    def _build_filter_card(self) -> QWidget:
+        card = QWidget()
+        card.setObjectName("card")
+        ly = QHBoxLayout(card)
+        ly.setContentsMargins(18, 14, 18, 14)
+        ly.setSpacing(10)
+
+        lbl = QLabel("PERÍODO")
+        lbl.setObjectName("labelField")
+        ly.addWidget(lbl)
+
+        lbl_de = QLabel("De:")
+        lbl_de.setObjectName("labelField")
+        ly.addWidget(lbl_de)
+
+        self._date_from = QDateEdit(QDate(QDate.currentDate().year(), 1, 1))
+        self._date_from.setCalendarPopup(True)
+        self._date_from.setFixedWidth(130)
+        ly.addWidget(self._date_from)
+
+        lbl_ate = QLabel("Até:")
+        lbl_ate.setObjectName("labelField")
+        ly.addWidget(lbl_ate)
+
+        self._date_to = QDateEdit(QDate(QDate.currentDate().year(), 12, 31))
+        self._date_to.setCalendarPopup(True)
+        self._date_to.setFixedWidth(130)
+        ly.addWidget(self._date_to)
+
+        ly.addStretch()
+
+        self._btn_consultar = QPushButton("Gerar DRE")
+        self._btn_consultar.setFixedWidth(110)
+        ly.addWidget(self._btn_consultar)
+
+        return card
+
+    def _build_summary_row(self) -> QWidget:
+        row = QWidget()
+        ly = QHBoxLayout(row)
         ly.setContentsMargins(0, 0, 0, 0)
         ly.setSpacing(12)
 
-        ly.addWidget(QLabel("Exercício de:"))
-        date_from = QDateEdit(QDate(QDate.currentDate().year(), 1, 1))
-        date_from.setCalendarPopup(True)
-        ly.addWidget(date_from)
+        metrics = [
+            ("Receitas Operacionais", "#86efac", "_lbl_receitas"),
+            ("(-) Custos",            "#f87171", "_lbl_custos"),
+            ("(-) Despesas",          "#fbbf24", "_lbl_despesas"),
+            ("Lucro Líquido",         "#a78bfa", "_lbl_lucro"),
+        ]
+        for titulo, cor, attr in metrics:
+            card, lbl = self._build_metric_card(titulo, cor)
+            setattr(self, attr, lbl)
+            ly.addWidget(card, 1)
 
-        ly.addWidget(QLabel("até:"))
-        date_to = QDateEdit(QDate(QDate.currentDate().year(), 12, 31))
-        date_to.setCalendarPopup(True)
-        ly.addWidget(date_to)
+        return row
 
-        ly.addWidget(QPushButton("Gerar DRE"))
+    def _build_metric_card(self, titulo: str, cor: str) -> tuple[QFrame, QLabel]:
+        card = QFrame()
+        card.setObjectName("card")
+        ly = QVBoxLayout(card)
+        ly.setContentsMargins(16, 14, 16, 16)
+        ly.setSpacing(6)
 
-        btn_pdf = QPushButton("Exportar PDF")
-        btn_pdf.setObjectName("btnSecondary")
-        ly.addWidget(btn_pdf)
+        lbl_titulo = QLabel(titulo.upper())
+        lbl_titulo.setObjectName("cardTitle")
 
-        ly.addStretch()
-        return bar
+        lbl_valor = QLabel("R$ 0,00")
+        lbl_valor.setStyleSheet(
+            f"color: {cor}; font-size: 20px; font-weight: 700; background: transparent;"
+        )
+
+        ly.addWidget(lbl_titulo)
+        ly.addWidget(lbl_valor)
+
+        return card, lbl_valor
 
     def _build_table(self) -> QTableWidget:
-        cols = ["Código", "Descrição", "Valor (R$)"]
-        rows = [
-            "Receita Bruta de Vendas",
-            "(-) Deduções",
-            "= Receita Líquida",
-            "(-) Custo das Mercadorias",
-            "= Lucro Bruto",
-            "(-) Despesas Operacionais",
-            "= Resultado Operacional",
-            "(-) IR / CSLL",
-            "= Lucro / Prejuízo Líquido",
-        ]
+        self._table = QTableWidget(0, len(self._COLS))
+        self._table.setHorizontalHeaderLabels(self._COLS)
 
-        tbl = QTableWidget(len(rows), len(cols))
-        tbl.setHorizontalHeaderLabels(cols)
-        tbl.horizontalHeader().setStretchLastSection(True)
-        tbl.setAlternatingRowColors(True)
-        tbl.setEditTriggers(QTableWidget.NoEditTriggers)
+        hdr = self._table.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self._table.setColumnWidth(2, 160)
 
-        for i, row_text in enumerate(rows):
-            tbl.setItem(i, 1, QTableWidgetItem(row_text))
-            tbl.setItem(i, 2, QTableWidgetItem("—"))
+        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table.verticalHeader().setVisible(False)
+        self._table.setShowGrid(False)
+        self._table.setSortingEnabled(False)
 
-        return tbl
+        return self._table
+
+    # ── helper estático ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _number_item(text: str) -> QTableWidgetItem:
+        item = QTableWidgetItem(text)
+        item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        return item
