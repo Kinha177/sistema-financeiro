@@ -7,11 +7,8 @@ from PySide6.QtWidgets import QMessageBox
 from app.controllers.conta_controller import ContaController
 from app.database.connection import get_session
 from app.services.razonete_service import RazoneteService
+from app.utils.formatters import formatar_numero as _fmt
 from app.views.razonete_view import RazoneteView
-
-
-def _fmt(valor: Decimal) -> str:
-    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 class RazoneteController:

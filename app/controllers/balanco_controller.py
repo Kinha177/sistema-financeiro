@@ -7,11 +7,8 @@ from PySide6.QtWidgets import QMessageBox, QTableWidget, QTableWidgetItem
 
 from app.database.connection import get_session
 from app.services.balanco_service import BalancoService
+from app.utils.formatters import formatar_numero as _fmt
 from app.views.balanco_view import BalancoView
-
-
-def _fmt(valor: Decimal) -> str:
-    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 class BalancoController:

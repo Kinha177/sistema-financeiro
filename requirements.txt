@@ -2,3 +2,10 @@ PySide6>=6.7.0
 SQLAlchemy>=2.0.0
 alembic>=1.13.0
 reportlab>=4.2.0
+openpyxl>=3.1.0
+
+# build
+PyInstaller>=6.0.0
+
+# dev / testes
+pytest>=8.0.0

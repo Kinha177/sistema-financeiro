@@ -7,11 +7,8 @@ from PySide6.QtWidgets import QMessageBox, QTableWidgetItem
 
 from app.database.connection import get_session
 from app.services.dre_service import DreService
+from app.utils.formatters import formatar_numero as _fmt
 from app.views.dre_view import DreView
-
-
-def _fmt(valor: Decimal) -> str:
-    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 _SECOES = [

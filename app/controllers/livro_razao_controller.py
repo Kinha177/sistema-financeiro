@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QMessageBox, QTableWidgetItem
 from app.controllers.conta_controller import ContaController
 from app.database.connection import get_session
 from app.services.livro_razao_service import LivroRazaoService
+from app.utils.formatters import formatar_numero as _fmt
 from app.views.livro_razao_view import LivroRazaoView
 
 
@@ -19,10 +20,6 @@ class _DateItem(QTableWidgetItem):
             (self.data(Qt.ItemDataRole.UserRole) or "")
             < (other.data(Qt.ItemDataRole.UserRole) or "")
         )
-
-
-def _fmt(valor: Decimal) -> str:
-    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 class LivroRazaoController:

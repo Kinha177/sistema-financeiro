@@ -1,13 +1,21 @@
 from __future__ import annotations
+from collections import deque
 from datetime import date
 from decimal import Decimal
+from typing import TypedDict
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.exceptions import ValidacaoError
 from app.models.movimento_estoque import MovimentacaoEstoque
 from app.models.produto import Produto
+
+
+class LoteConsumo(TypedDict):
+    data: date
+    quantidade: Decimal
+    valor_unitario: Decimal
+    valor_total: Decimal
 
 
 class EstoqueService:
@@ -22,9 +30,10 @@ class EstoqueService:
         valor: Decimal,
         data: date,
     ) -> MovimentacaoEstoque:
-        """Registra entrada de estoque e incrementa saldo do produto."""
         if quantidade <= Decimal("0"):
             raise ValidacaoError("Quantidade de entrada deve ser maior que zero.")
+        if valor < Decimal("0"):
+            raise ValidacaoError("Valor unitário não pode ser negativo.")
 
         produto = self._db.get(Produto, produto_id)
         if produto is None:
@@ -49,7 +58,6 @@ class EstoqueService:
         valor: Decimal,
         data: date,
     ) -> MovimentacaoEstoque:
-        """Registra saída de estoque. Lança ValidacaoError se estoque insuficiente."""
         if quantidade <= Decimal("0"):
             raise ValidacaoError("Quantidade de saída deve ser maior que zero.")
 
@@ -79,12 +87,24 @@ class EstoqueService:
         self,
         produto_id: int,
         quantidade_saida: Decimal,
-    ) -> list[dict]:
-        """PEPS (FIFO): aloca a saída pelos lotes mais antigos primeiro.
+    ) -> list[LoteConsumo]:
+        """PEPS (FIFO): aloca a saída pelos lotes mais antigos primeiro."""
+        return self._calcular_custeio(produto_id, quantidade_saida, lifo=False)
 
-        Retorna lista de dicts com os lotes consumidos:
-            [{"data", "quantidade", "valor_unitario", "valor_total"}, ...]
-        """
+    def calcular_ueps(
+        self,
+        produto_id: int,
+        quantidade_saida: Decimal,
+    ) -> list[LoteConsumo]:
+        """UEPS (LIFO): aloca a saída pelos lotes mais recentes primeiro."""
+        return self._calcular_custeio(produto_id, quantidade_saida, lifo=True)
+
+    def _calcular_custeio(
+        self,
+        produto_id: int,
+        quantidade_saida: Decimal,
+        lifo: bool,
+    ) -> list[LoteConsumo]:
         if quantidade_saida <= Decimal("0"):
             raise ValidacaoError("Quantidade de saída deve ser maior que zero.")
 
@@ -98,61 +118,54 @@ class EstoqueService:
                 f"Estoque insuficiente. Disponível: {saldo}, solicitado: {quantidade_saida}."
             )
 
-        # Fila de entradas em ordem cronológica (mais antigo primeiro)
-        entradas = (
+        # Query única: todos os movimentos em ordem cronológica
+        movimentos = (
             self._db.query(MovimentacaoEstoque)
-            .filter(
-                MovimentacaoEstoque.produto_id == produto_id,
-                MovimentacaoEstoque.tipo == "ENTRADA",
-            )
+            .filter(MovimentacaoEstoque.produto_id == produto_id)
             .order_by(MovimentacaoEstoque.data, MovimentacaoEstoque.id)
             .all()
         )
 
-        # Total já consumido pelas saídas anteriores registradas
-        total_saidas_anteriores = (
-            self._db.query(func.sum(MovimentacaoEstoque.quantidade))
-            .filter(
-                MovimentacaoEstoque.produto_id == produto_id,
-                MovimentacaoEstoque.tipo == "SAIDA",
-            )
-            .scalar()
-        ) or Decimal("0")
+        # Reconstrói o estado corrente dos lotes replaying cada movimento.
+        # Cada item: [qty_disponivel, valor_unitario, data_entrada]
+        lotes: deque[list] = deque()
+        for m in movimentos:
+            qty = Decimal(str(m.quantidade))
+            vlr = Decimal(str(m.valor))
+            if m.tipo == "ENTRADA":
+                lotes.append([qty, vlr, m.data])
+            else:
+                restante = qty
+                while restante > 0 and lotes:
+                    lote = lotes[-1] if lifo else lotes[0]
+                    consumido = min(lote[0], restante)
+                    lote[0] -= consumido
+                    restante -= consumido
+                    if lote[0] == Decimal("0"):
+                        if lifo:
+                            lotes.pop()
+                        else:
+                            lotes.popleft()
 
-        # Consome as saídas anteriores da frente da fila (PEPS sobre o histórico)
-        ja_consumido = Decimal(str(total_saidas_anteriores))
-        lotes: list[dict] = []
-        for entrada in entradas:
-            qtd = Decimal(str(entrada.quantidade))
-            if ja_consumido >= qtd:
-                ja_consumido -= qtd
-                continue
-            lotes.append({
-                "data":                  entrada.data,
-                "quantidade_disponivel": qtd - ja_consumido,
-                "valor_unitario":        Decimal(str(entrada.valor)),
-            })
-            ja_consumido = Decimal("0")
-
-        # Aloca a quantidade_saida pelos lotes disponíveis
-        resultado: list[dict] = []
+        # Aloca quantidade_saida pelos lotes disponíveis na ordem do método
+        resultado: list[LoteConsumo] = []
         restante = quantidade_saida
-        for lote in lotes:
+        lotes_iter = reversed(lotes) if lifo else iter(lotes)
+        for lote in lotes_iter:
             if restante <= Decimal("0"):
                 break
-            consumido = min(lote["quantidade_disponivel"], restante)
+            consumido = min(lote[0], restante)
             resultado.append({
-                "data":           lote["data"],
+                "data":           lote[2],
                 "quantidade":     consumido,
-                "valor_unitario": lote["valor_unitario"],
-                "valor_total":    consumido * lote["valor_unitario"],
+                "valor_unitario": lote[1],
+                "valor_total":    consumido * lote[1],
             })
             restante -= consumido
 
         return resultado
 
     def saldo_estoque(self, produto_id: int) -> Decimal:
-        """Retorna o saldo atual do produto."""
         produto = self._db.get(Produto, produto_id)
         if produto is None:
             raise ValidacaoError(f"Produto {produto_id} não encontrado.")
